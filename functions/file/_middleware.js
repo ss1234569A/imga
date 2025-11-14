@@ -1,3 +1,1 @@
-export const onRequest = async ({ next }) => {
-  return next();
-};
+export const onRequest = async ({ next }) => next();
