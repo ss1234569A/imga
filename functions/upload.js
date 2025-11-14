@@ -1,40 +1,82 @@
 // functions/upload.js
+
 export async function onRequestPost({ request, env }) {
   try {
     const contentType = request.headers.get("Content-Type") || "";
     if (!contentType.includes("multipart/form-data")) {
-      return new Response(JSON.stringify({ ok: false, error: "Bad content type" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ ok: false, error: "Content-Type must be multipart/form-data" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    // 读取文件
-    const form = await request.formData();
-    const file = form.get("file");
+    // 读取上传的文件
+    const formData = await request.formData();
+    const file = formData.get("file");
 
     if (!file || typeof file === "string") {
-      return new Response(JSON.stringify({ ok: false, error: "No file" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ ok: false, error: "file 字段缺失" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    // ⭐ 用 sendDocument (支持任意文件 & 大文件)
+    // ⭐ 使用 sendDocument（支持任意文件类型 + 最大 2GB）
     const tgForm = new FormData();
     tgForm.append("chat_id", env.TG_Chat_ID);
     tgForm.append("document", file, file.name || "file");
 
     const tgResp = await fetch(
       `https://api.telegram.org/bot${env.TG_Bot_Token}/sendDocument`,
-      { method: "POST", body: tgForm }
+      {
+        method: "POST",
+        body: tgForm,
+      }
     );
 
-    const data = await tgResp.json();
-    if (!data.ok) {
-      console.error("Telegram sendDocument error:", data);
-      return new Response(JSON.stringify({ ok: false, error: "Telegram failed", data }), {
-        status: 500,
+    const tgJson = await tgResp.json();
+
+    if (!tgJson.ok) {
+      console.error("Telegram sendDocument 错误：", tgJson);
+      return new Response(
+        JSON.stringify({ ok: false, error: "Telegram 上传失败", detail: tgJson }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 文件信息
+    const doc = tgJson.result.document;
+    const file_id = doc.file_id;
+    const file_name = doc.file_name || "file.bin";
+
+    const ext = file_name.includes(".")
+      ? file_name.split(".").pop()
+      : "bin";
+
+    const origin = new URL(request.url).origin;
+    const url = `${origin}/file/${file_id}.${ext}`;
+
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        file_id,
+        file_name,
+        url,
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+
+  } catch (err) {
+    console.error("upload.js error:", err);
+    return new Response(
+      JSON.stringify({ ok: false, error: err.message }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+}        status: 500,
         headers: { "Content-Type": "application/json" },
       });
     }
