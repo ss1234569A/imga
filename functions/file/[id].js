@@ -1,39 +1,55 @@
 // functions/file/[id].js
-export async function onRequest({ params, env }) {
+// 根据 file_id 从 Telegram 拉取真实文件，保持自动下载行为
+
+export async function onRequest({ env, params }) {
   try {
-    const raw = params.id || "";
-    const file_id = raw.split(".")[0];  // 去掉扩展名
+    const rawId = params.id || "";
+    const fileId = rawId.split(".")[0]; // 支持 xxx.mp4 这种写法，只取前半段
 
-    // getFile API -> 获得 file_path
-    const info = await fetch(
-      `https://api.telegram.org/bot${env.TG_Bot_Token}/getFile?file_id=${file_id}`
+    if (!fileId) {
+      return new Response("Bad Request", { status: 400 });
+    }
+
+    // 第一步：通过 getFile 获取 file_path
+    const infoResp = await fetch(
+      `https://api.telegram.org/bot${env.TG_Bot_Token}/getFile?file_id=${encodeURIComponent(
+        fileId
+      )}`
     );
-    const j = await info.json();
+    const infoData = await infoResp.json();
 
-    if (!j.ok) {
+    if (!infoData.ok || !infoData.result || !infoData.result.file_path) {
+      console.error("Telegram getFile error:", infoData);
       return new Response("File not found", { status: 404 });
     }
 
-    const file_path = j.result.file_path;
+    const filePath = infoData.result.file_path;
 
-    // 下载文件内容
-    const tgFileResp = await fetch(
-      `https://api.telegram.org/file/bot${env.TG_Bot_Token}/${file_path}`
+    // 第二步：下载真实文件
+    const fileResp = await fetch(
+      `https://api.telegram.org/file/bot${env.TG_Bot_Token}/${filePath}`
     );
 
-    const buf = await tgFileResp.arrayBuffer();
-    const contentType = tgFileResp.headers.get("Content-Type") || "application/octet-stream";
+    if (!fileResp.ok) {
+      console.error("Telegram file download error:", fileResp.status);
+      return new Response("Upstream error", { status: 502 });
+    }
 
+    const buf = await fileResp.arrayBuffer();
+    const contentType =
+      fileResp.headers.get("Content-Type") || "application/octet-stream";
+
+    // ⭐ 保持自动下载：Content-Disposition: attachment
     return new Response(buf, {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        "Content-Disposition": "inline",     // ⭐ 允许浏览器直接打开视频/PDF/图片
+        "Content-Disposition": "attachment",
         "Cache-Control": "public, max-age=31536000",
-        "Access-Control-Allow-Origin": "*",
       },
     });
   } catch (err) {
-    return new Response("Internal error " + err.message, { status: 500 });
+    console.error("file route error:", err);
+    return new Response("Internal error", { status: 500 });
   }
-}
+  }
