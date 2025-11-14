@@ -31,7 +31,7 @@ export async function onRequest(context) {
     const uploadForm = new FormData();
     uploadForm.append("file", fixedBlob, file.name || "image.jpg");
 
-    const teleResp = await fetch("https://telegra.ph/upload", {
+    const teleResp = await fetch("https://graph.org/upload", {
       method: "POST",
       body: uploadForm,
     });
