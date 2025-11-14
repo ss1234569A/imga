@@ -2,167 +2,75 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <title>简易图床（Telegraph 代理）</title>
+  <title>简易图床（Telegram + Cloudflare Pages）</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      max-width: 600px;
-      margin: 40px auto;
-      padding: 0 16px;
-      color: #222;
-    }
-    h1 {
-      font-size: 22px;
-      margin-bottom: 16px;
-    }
-    .card {
-      border: 1px solid #ddd;
-      border-radius: 12px;
-      padding: 16px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-    }
-    .row {
-      margin-bottom: 12px;
-    }
-    input[type="file"] {
-      display: block;
-      margin-bottom: 8px;
-    }
-    button {
-      padding: 8px 16px;
-      border-radius: 8px;
-      border: none;
-      background: #1677ff;
-      color: #fff;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-    .log {
-      font-size: 13px;
-      color: #555;
-      white-space: pre-wrap;
-      background: #f8f8f8;
-      padding: 8px;
-      border-radius: 8px;
-      max-height: 200px;
-      overflow: auto;
-    }
-    .link {
-      font-size: 14px;
-      word-break: break-all;
-      margin-top: 8px;
-    }
-    .preview {
-      margin-top: 10px;
-      max-height: 200px;
-    }
-    .preview img {
-      max-width: 100%;
-      max-height: 200px;
-      border-radius: 8px;
-      border: 1px solid #eee;
-    }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 600px; margin: 40px auto; padding: 0 16px; }
+    h1 { font-size: 1.4rem; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; }
+    input[type="file"] { margin: 12px 0; }
+    button { padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
+    .log { margin-top: 12px; font-size: 0.9rem; white-space: pre-wrap; word-break: break-all; }
+    a { color: #0070f3; word-break: break-all; }
   </style>
 </head>
 <body>
-  <h1>简易图床（Telegraph 代理）</h1>
-
+  <h1>简易图床（Telegram + Cloudflare Pages）</h1>
   <div class="card">
-    <div class="row">
-      <input id="fileInput" type="file" accept="image/*" />
-      <small>说明：单张图片，建议 &lt; 5 MB（Telegra.ph 限制）。</small>
-    </div>
-    <div class="row">
-      <button id="uploadBtn">上传图片</button>
-    </div>
-    <div class="row">
-      <div class="link" id="linkBox"></div>
-      <div class="preview" id="previewBox"></div>
-    </div>
-    <div class="row">
-      <div class="log" id="logBox"></div>
-    </div>
+    <input id="file" type="file" accept="image/*" />
+    <br />
+    <button id="btn">上传</button>
+    <div class="log" id="log"></div>
   </div>
 
   <script>
-    const fileInput = document.getElementById('fileInput');
-    const uploadBtn = document.getElementById('uploadBtn');
-    const linkBox = document.getElementById('linkBox');
-    const previewBox = document.getElementById('previewBox');
-    const logBox = document.getElementById('logBox');
+    const fileInput = document.getElementById("file");
+    const btn = document.getElementById("btn");
+    const log = document.getElementById("log");
 
-    function log(msg) {
-      logBox.textContent += msg + "\n";
-      logBox.scrollTop = logBox.scrollHeight;
+    function logText(text) {
+      log.textContent = text;
     }
 
-    uploadBtn.onclick = async () => {
+    btn.onclick = async () => {
       const file = fileInput.files[0];
       if (!file) {
-        alert("请先选择一张图片");
+        logText("请选择一张图片。");
         return;
       }
 
-      uploadBtn.disabled = true;
-      uploadBtn.textContent = "上传中...";
-      linkBox.textContent = "";
-      previewBox.innerHTML = "";
-      logBox.textContent = "";
+      btn.disabled = true;
+      logText("开始上传...");
 
       try {
         const form = new FormData();
         form.append("file", file);
 
-        log("开始上传到 /upload ...");
         const resp = await fetch("/upload", {
           method: "POST",
           body: form,
         });
 
-        if (!resp.ok) {
-          const txt = await resp.text();
-          log("上传失败，状态：" + resp.status + "\n" + txt);
-          alert("上传失败：" + resp.status);
+        const data = await resp.json().catch(() => ({}));
+
+        if (!resp.ok || !data.ok) {
+          logText("上传失败：\n" + JSON.stringify(data || {}, null, 2));
+          btn.disabled = false;
           return;
         }
 
-        const data = await resp.json();
-        log("服务端返回：" + JSON.stringify(data, null, 2));
-
-        if (!data.url) {
-          alert("返回数据中没有 url 字段");
-          return;
-        }
-
-        const url = data.url;
-        linkBox.innerHTML = `外链：<a href="${url}" target="_blank">${url}</a>`;
-
-        // 预览
-        const img = document.createElement("img");
-        img.src = url;
-        previewBox.appendChild(img);
-
-        // 点击复制
-        linkBox.onclick = async () => {
-          try {
-            await navigator.clipboard.writeText(url);
-            alert("链接已复制到剪贴板");
-          } catch (e) {
-            alert("复制失败，请手动复制");
-          }
-        };
+        logText("上传成功：\n" + data.url + "\n\n点击下面链接预览：\n");
+        const a = document.createElement("a");
+        a.href = data.url;
+        a.textContent = data.url;
+        a.target = "_blank";
+        log.appendChild(document.createElement("br"));
+        log.appendChild(a);
       } catch (e) {
-        console.error(e);
-        log("异常：" + e.message);
-        alert("发生错误：" + e.message);
+        logText("网络错误：" + e);
       } finally {
-        uploadBtn.disabled = false;
-        uploadBtn.textContent = "上传图片";
+        btn.disabled = false;
       }
     };
   </script>
