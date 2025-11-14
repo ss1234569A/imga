@@ -1,35 +1,39 @@
-export async function onRequest(context) {
-  const { request, env, params } = context;
-  const fileId = params.id;
+// functions/file/[id].js
+export async function onRequest({ params, env }) {
+  try {
+    const raw = params.id || "";
+    const file_id = raw.split(".")[0];  // 去掉扩展名
 
-  // 1. 通过 getFile 获取真实 file_path
-  const getFileUrl = `https://api.telegram.org/bot${env.TG_Bot_Token}/getFile?file_id=${fileId}`;
-  const res = await fetch(getFileUrl);
-  const json = await res.json();
+    // getFile API -> 获得 file_path
+    const info = await fetch(
+      `https://api.telegram.org/bot${env.TG_Bot_Token}/getFile?file_id=${file_id}`
+    );
+    const j = await info.json();
 
-  if (!json.ok) {
-    return new Response("Invalid file_id", { status: 404 });
-  }
-
-  const filePath = json.result.file_path;
-
-  // 2. 下载真实文件
-  const fileUrl = `https://api.telegram.org/file/bot${env.TG_Bot_Token}/${filePath}`;
-  const fileRes = await fetch(fileUrl);
-
-  if (!fileRes.ok) {
-    return new Response("File fetch error", { status: 404 });
-  }
-
-  // 3. 读取 content-type（可能是图片、视频等）
-  const contentType = fileRes.headers.get("content-type") || "application/octet-stream";
-
-  // 4. 以 inline 输出文件（浏览器预览）
-  return new Response(await fileRes.arrayBuffer(), {
-    headers: {
-      "content-type": contentType,
-      "cache-control": "public, max-age=31536000",
-      "content-disposition": "inline"
+    if (!j.ok) {
+      return new Response("File not found", { status: 404 });
     }
-  });
+
+    const file_path = j.result.file_path;
+
+    // 下载文件内容
+    const tgFileResp = await fetch(
+      `https://api.telegram.org/file/bot${env.TG_Bot_Token}/${file_path}`
+    );
+
+    const buf = await tgFileResp.arrayBuffer();
+    const contentType = tgFileResp.headers.get("Content-Type") || "application/octet-stream";
+
+    return new Response(buf, {
+      status: 200,
+      headers: {
+        "Content-Type": contentType,
+        "Content-Disposition": "inline",     // ⭐ 允许浏览器直接打开视频/PDF/图片
+        "Cache-Control": "public, max-age=31536000",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  } catch (err) {
+    return new Response("Internal error " + err.message, { status: 500 });
+  }
 }
