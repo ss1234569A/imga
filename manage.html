@@ -1,586 +1,158 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <title>文件管理后台 - Telegraph 图床</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    :root {
-      --bg: #020617;
-      --card: #020617;
-      --card-soft: #0b1220;
-      --accent: #4f46e5;
-      --accent-soft: rgba(79,70,229,0.18);
-      --text: #e5e7eb;
-      --text-soft: #9ca3af;
-      --border: #1f2937;
-      --danger: #f97373;
-      --chip-bg: #111827;
-      --chip-active: #4f46e5;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #111827 0, #020617 60%);
-      color: var(--text);
-      padding: 18px;
-    }
-    @media (min-width: 960px) {
-      body { padding: 24px 32px; }
-    }
-    .layout {
-      max-width: 1120px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.5fr);
-      gap: 18px;
-    }
-    @media (max-width: 900px) {
-      .layout { grid-template-columns: minmax(0, 1fr); }
-    }
-    .header-title {
-      max-width: 1120px;
-      margin: 0 auto 14px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .header-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 10px;
-      background: radial-gradient(circle at 30% 0, #facc15, #f97316);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #111827;
-      font-size: 20px;
-    }
-    h1 {
-      margin: 0;
-      font-size: 1.3rem;
-      letter-spacing: .02em;
-    }
-    .subtitle {
-      margin: 0;
-      font-size: .8rem;
-      color: var(--text-soft);
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文件管理后台</title>
 
-    .card {
-      background: linear-gradient(135deg, #020617, #020617) padding-box,
-                  linear-gradient(135deg, rgba(96,165,250,.35), rgba(129,140,248,.5)) border-box;
-      border-radius: 18px;
-      border: 1px solid transparent;
-      padding: 16px 16px 12px;
-      box-shadow: 0 18px 40px rgba(15,23,42,0.9);
-    }
-    .card-inner {
-      background: radial-gradient(circle at top, #111827, #020617);
-      border-radius: 13px;
-      padding: 12px 12px 10px;
-      border: 1px solid rgba(55,65,81,0.7);
-    }
-    h2 {
-      margin: 0 0 6px;
-      font-size: 1rem;
-    }
+<!-- 现代卡片 UI：Tailwind CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
 
-    label {
-      font-size: .8rem;
-      color: var(--text-soft);
-      display: block;
-      margin-bottom: 6px;
-    }
-    input[type="text"] {
-      width: 100%;
-      padding: 8px 10px;
-      font-size: .85rem;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: #020617;
-      color: var(--text);
-      outline: none;
-    }
-    input[type="text"]:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 1px rgba(79,70,229,0.55);
-    }
-
-    button {
-      border: none;
-      border-radius: 999px;
-      padding: 8px 16px;
-      font-size: .86rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      cursor: pointer;
-      background: var(--accent);
-      color: white;
-      box-shadow: 0 12px 30px rgba(79,70,229,.45);
-      transition: transform .08s ease, box-shadow .08s ease, background .08s;
-      white-space: nowrap;
-    }
-    button:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 16px 40px rgba(79,70,229,.6);
-    }
-    button:disabled {
-      opacity: .55;
-      box-shadow: none;
-      transform: none;
-      cursor: default;
-    }
-    .btn-light {
-      background: transparent;
-      color: var(--text-soft);
-      box-shadow: none;
-      border-radius: 10px;
-      padding-inline: 12px;
-    }
-    .btn-light:hover {
-      background: rgba(148,163,184,0.12);
-      box-shadow: none;
-      transform: none;
-    }
-
-    .stack { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; }
-    .row > * { flex: 1; }
-
-    .log {
-      margin-top: 8px;
-      padding: 8px 10px;
-      border-radius: 11px;
-      background: rgba(15,23,42,0.96);
-      border: 1px solid rgba(55,65,81,0.8);
-      font-size: .78rem;
-      max-height: 130px;
-      overflow: auto;
-      white-space: pre-wrap;
-      color: var(--text-soft);
-    }
-    .log-title {
-      font-weight: 600;
-      color: #c7d2fe;
-      margin-bottom: 2px;
-    }
-
-    .files-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 6px;
-      margin-bottom: 6px;
-    }
-    .pill {
-      padding: 3px 9px;
-      border-radius: 999px;
-      font-size: .78rem;
-      border: 1px solid rgba(75,85,99,0.8);
-      background: rgba(15,23,42,0.9);
-      color: var(--text-soft);
-    }
-
-    .search-bar {
-      margin-top: 4px;
-    }
-
-    .chips {
-      margin-top: 8px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      max-height: 90px;
-      overflow: auto;
-    }
-    .chip {
-      padding: 3px 9px;
-      border-radius: 999px;
-      font-size: .75rem;
-      background: var(--chip-bg);
-      color: var(--text-soft);
-      border: 1px solid rgba(55,65,81,0.9);
-      cursor: pointer;
-      user-select: none;
-    }
-    .chip span {
-      margin-left: 4px;
-      opacity: .75;
-      font-size: .7rem;
-    }
-    .chip.active {
-      background: var(--chip-active);
-      color: #e5e7ff;
-      border-color: transparent;
-    }
-
-    .files-box {
-      margin-top: 8px;
-      border-radius: 13px;
-      border: 1px solid rgba(31,41,55,0.9);
-      background: radial-gradient(circle at top, #020617, #020617);
-      max-height: 420px;
-      overflow: auto;
-    }
-    .file-row {
-      display: grid;
-      grid-template-columns: minmax(0, 4fr) minmax(0, 2fr) minmax(0, 2.2fr) auto;
-      gap: 8px;
-      padding: 8px 10px;
-      font-size: .8rem;
-      border-bottom: 1px solid rgba(31,41,55,0.9);
-      align-items: center;
-    }
-    .file-row:last-child { border-bottom: none; }
-
-    .file-name {
-      font-weight: 500;
-      color: #e5e7eb;
-      word-break: break-all;
-    }
-    .file-meta {
-      color: var(--text-soft);
-      font-size: .74rem;
-    }
-    .file-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-    }
-    .tag-pill {
-      padding: 2px 7px;
-      border-radius: 999px;
-      font-size: .72rem;
-      background: rgba(30,64,175,0.25);
-      color: #c7d2fe;
-    }
-    .file-actions a {
-      font-size: .74rem;
-      text-decoration: none;
-      color: #93c5fd;
-      padding: 4px 8px;
-      border-radius: 999px;
-      border: 1px solid rgba(55,65,81,0.9);
-      background: rgba(15,23,42,0.96);
-    }
-    .file-actions a:hover {
-      background: rgba(37,99,235,0.35);
-      border-color: rgba(96,165,250,0.9);
-    }
-    .empty {
-      padding: 20px;
-      text-align: center;
-      font-size: .8rem;
-      color: var(--text-soft);
-    }
-
-    @media (max-width: 720px) {
-      .file-row {
-        grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.2fr);
-        grid-template-rows: auto auto;
-        grid-template-areas:
-          "name actions"
-          "meta tags";
-      }
-      .file-row > div:nth-child(1) { grid-area: name; }
-      .file-row > div:nth-child(2) { grid-area: meta; }
-      .file-row > div:nth-child(3) { grid-area: tags; }
-      .file-row > div:nth-child(4) { grid-area: actions; justify-self: end; }
-    }
-  </style>
+<style>
+  body { background:#f6f7fb; }
+  .card {
+    @apply bg-white rounded-2xl shadow p-6 mb-8;
+  }
+  .btn {
+    @apply px-4 py-2 rounded-lg text-white font-medium;
+  }
+  .btn-primary { @apply bg-blue-600 hover:bg-blue-700; }
+  .btn-danger { @apply bg-red-600 hover:bg-red-700; }
+  .tag {
+    @apply inline-block bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded mr-1 cursor-pointer;
+  }
+</style>
 </head>
-<body>
 
-<div class="header-title">
-  <div class="header-icon">📁</div>
-  <div>
-    <h1>文件管理后台</h1>
-    <p class="subtitle">Telegraph 频道存储 · 任意文件 · 标签系统 · 批量上传</p>
+<body class="p-4">
+
+<h1 class="text-2xl font-bold mb-6 flex items-center">
+  📁 文件管理后台
+</h1>
+
+<!-- 全局提示 -->
+<div id="toast" class="hidden p-4 rounded-lg mb-4"></div>
+
+<!-- 上传区域 -->
+<div class="card">
+  <h2 class="text-xl font-semibold mb-4">上传文件</h2>
+
+  <div class="mb-3">
+    <input id="fileInput" type="file" class="w-full bg-gray-100 p-3 rounded-lg" multiple>
   </div>
+
+  <div class="mb-3">
+    <input id="tagInput" type="text" placeholder="为文件添加标签（可选，多个用空格分隔）"
+           class="w-full bg-gray-100 p-3 rounded-lg">
+  </div>
+
+  <button id="uploadBtn" class="btn btn-primary w-full">开始上传</button>
 </div>
 
-<div class="layout">
+<!-- 搜索 -->
+<div class="card">
+  <h2 class="text-xl font-semibold mb-4">搜索文件</h2>
+  <input id="searchInput" type="text" placeholder="输入关键词（文件名或标签）"
+         class="w-full bg-gray-100 p-3 rounded-lg mb-3">
+  <button id="searchBtn" class="btn btn-primary w-full">搜索</button>
+</div>
 
-  <!-- 左侧：上传区 -->
-  <div class="card">
-    <div class="card-inner">
-      <h2>上传文件</h2>
-      <p class="subtitle" style="margin-bottom:6px;">
-        支持任意类型，批量上传。选择文件后，不会自动上传，需点击“开始上传”。
-      </p>
-
-      <div class="stack">
-        <div class="row">
-          <button id="chooseBtn" type="button">选择文件</button>
-          <button id="uploadBtn" type="button">开始上传</button>
-        </div>
-
-        <input id="fileInput" type="file" name="file" multiple style="display:none;" />
-
-        <div>
-          <label>当前已选择文件</label>
-          <div id="chosenFiles" class="file-meta">未选择文件</div>
-        </div>
-
-        <div>
-          <label>标签（可选，逗号分隔：如 “英语, 视频, 生词本”）</label>
-          <input id="tagsInput" type="text" placeholder="示例：英语, 视频, 生词本" />
-        </div>
-
-        <div class="log">
-          <div class="log-title">上传日志</div>
-          <div id="logBody">等待上传操作…</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 右侧：文件列表 -->
-  <div class="card">
-    <div class="card-inner">
-      <div class="files-header">
-        <div>
-          <h2>文件列表</h2>
-          <p class="subtitle">可按名称/标签搜索，并按标签筛选</p>
-        </div>
-        <div class="pill"><span id="countLabel">0</span> 个文件</div>
-      </div>
-
-      <div class="search-bar">
-        <input id="searchInput" type="text" placeholder="搜索文件名或标签…" />
-      </div>
-
-      <div class="chips" id="tagChips"></div>
-
-      <div class="files-box" id="fileList">
-        <div class="empty">正在加载文件列表…</div>
-      </div>
-
-      <div style="margin-top:8px;display:flex;justify-content:flex-end;">
-        <button class="btn-light" id="refreshBtn" type="button">刷新列表</button>
-      </div>
-    </div>
-  </div>
-
+<!-- 文件列表 -->
+<div class="card">
+  <h2 class="text-xl font-semibold mb-4">文件列表</h2>
+  <div id="fileList" class="space-y-4"></div>
 </div>
 
 <script>
-  const chooseBtn   = document.getElementById("chooseBtn");
-  const uploadBtn   = document.getElementById("uploadBtn");
-  const fileInput   = document.getElementById("fileInput");
-  const chosenFiles = document.getElementById("chosenFiles");
-  const tagsInput   = document.getElementById("tagsInput");
-  const logBody     = document.getElementById("logBody");
-  const fileListEl  = document.getElementById("fileList");
-  const searchInput = document.getElementById("searchInput");
-  const tagChips    = document.getElementById("tagChips");
-  const countLabel  = document.getElementById("countLabel");
-  const refreshBtn  = document.getElementById("refreshBtn");
+const toast = (msg, type="success") => {
+  const box = document.getElementById("toast");
+  box.className = `p-4 rounded-lg mb-4 text-white ${type==="success" ? "bg-green-600" : "bg-red-600"}`;
+  box.innerText = msg;
+  box.classList.remove("hidden");
+  setTimeout(() => box.classList.add("hidden"), 3000);
+};
 
-  let allFiles = [];
-  let activeTag = "";
+// 上传文件
+document.getElementById("uploadBtn").onclick = async () => {
+  const files = document.getElementById("fileInput").files;
+  if (!files.length) return toast("请先选择文件", "error");
 
-  function log(msg, reset = false) {
-    if (reset) logBody.textContent = msg;
-    else logBody.textContent += "\\n" + msg;
-    logBody.scrollTop = logBody.scrollHeight;
-  }
+  const tags = document.getElementById("tagInput").value.trim();
 
-  function humanSize(bytes) {
-    if (!bytes && bytes !== 0) return "-";
-    const units = ["B", "KB", "MB", "GB", "TB"];
-    let i = 0;
-    let value = bytes;
-    while (value >= 1024 && i < units.length - 1) {
-      value /= 1024;
-      i++;
-    }
-    return value.toFixed(1) + " " + units[i];
-  }
-
-  function formatTime(ts) {
-    if (!ts) return "";
-    const d = new Date(ts);
-    return d.toLocaleString();
-  }
-
-  function updateChosenLabel() {
-    const files = fileInput.files;
-    if (!files.length) {
-      chosenFiles.textContent = "未选择文件";
-      return;
-    }
-    if (files.length === 1) {
-      chosenFiles.textContent = files[0].name;
-    } else {
-      chosenFiles.textContent = files.length + " 个文件已选择";
-    }
-  }
-
-  chooseBtn.onclick = () => {
-    fileInput.click();
-  };
-
-  fileInput.onchange = () => {
-    updateChosenLabel();
-    log("已选择 " + fileInput.files.length + " 个文件（尚未上传）", true);
-  };
-
-  uploadBtn.onclick = async () => {
-    const files = fileInput.files;
-    if (!files.length) {
-      log("请先选择文件。", true);
-      return;
-    }
-
-    uploadBtn.disabled = true;
-    chooseBtn.disabled = true;
-
-    const tags = tagsInput.value.trim();
+  for (let f of files) {
     const form = new FormData();
+    form.append("file", f);
 
-    for (const f of files) {
-      form.append("file", f);
-    }
-    if (tags) form.append("tags", tags);
+    const res = await fetch("/upload", { method:"POST", body: form });
+    const json = await res.json();
 
-    log("开始上传，共 " + files.length + " 个文件…", true);
-
-    try {
-      const resp = await fetch("/upload", { method: "POST", body: form });
-      const data = await resp.json();
-
-      log("服务器返回状态：" + resp.status);
-
-      if (!resp.ok || !data.ok) {
-        log("上传失败：" + JSON.stringify(data));
-      } else {
-        log("上传成功：\\n" + JSON.stringify(data.files, null, 2));
-        // 清空选择
-        fileInput.value = "";
-        updateChosenLabel();
-        tagsInput.value = "";
-        await loadFiles();
-      }
-    } catch (err) {
-      log("上传异常：" + err);
-    } finally {
-      uploadBtn.disabled = false;
-      chooseBtn.disabled = false;
-    }
-  };
-
-  refreshBtn.onclick = () => {
-    loadFiles();
-  };
-
-  function renderList() {
-    const q = searchInput.value.trim().toLowerCase();
-    const tagFilter = activeTag.toLowerCase();
-
-    let files = allFiles.slice();
-
-    if (q) {
-      files = files.filter((f) => {
-        const name = (f.name || "").toLowerCase();
-        const tagStr = (f.tags || []).join(" ").toLowerCase();
-        return name.includes(q) || tagStr.includes(q);
-      });
+    if (!json.ok) {
+      toast("上传失败：" + (json.error || "未知错误"), "error");
+      continue;
     }
 
-    if (tagFilter) {
-      files = files.filter((f) =>
-        (f.tags || []).map(t => t.toLowerCase()).includes(tagFilter)
-      );
-    }
-
-    countLabel.textContent = allFiles.length;
-
-    if (!files.length) {
-      fileListEl.innerHTML = '<div class="empty">没有匹配的文件。</div>';
-      return;
-    }
-
-    fileListEl.innerHTML = files.map(f => {
-      const tagsHtml = (f.tags || [])
-        .map(t => `<span class="tag-pill">${t}</span>`)
-        .join("");
-      return `
-        <div class="file-row">
-          <div>
-            <div class="file-name">${f.name || "(未命名文件)"}</div>
-            <div class="file-meta">${formatTime(f.time)}</div>
-          </div>
-          <div class="file-meta">${humanSize(f.size)}</div>
-          <div class="file-tags">
-            ${tagsHtml || '<span class="file-meta" style="opacity:.6;">无标签</span>'}
-          </div>
-          <div class="file-actions">
-            <a href="${f.url}" target="_blank">打开/下载</a>
-          </div>
-        </div>
-      `;
-    }).join("");
-  }
-
-  function renderTags() {
-    const tagCount = {};
-    allFiles.forEach(f => {
-      (f.tags || []).forEach(t => {
-        if (!t) return;
-        tagCount[t] = (tagCount[t] || 0) + 1;
-      });
+    // 保存到 KV
+    await fetch("/manage/save", {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({
+        id: json.file_id,
+        name: f.name,
+        url: json.url,
+        tags
+      })
     });
 
-    const tags = Object.keys(tagCount).sort((a, b) => tagCount[b] - tagCount[a]);
-
-    tagChips.innerHTML =
-      `<div class="chip ${activeTag === "" ? "active" : ""}" data-tag="">全部<span>${allFiles.length}</span></div>` +
-      tags.map(t =>
-        `<div class="chip ${activeTag === t ? "active" : ""}" data-tag="${t}">
-           ${t}<span>${tagCount[t]}</span>
-         </div>`
-      ).join("");
-
-    tagChips.querySelectorAll(".chip").forEach(chip => {
-      chip.onclick = () => {
-        activeTag = chip.dataset.tag || "";
-        tagChips.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
-        chip.classList.add("active");
-        renderList();
-      };
-    });
+    toast("上传成功：" + f.name);
   }
 
-  async function loadFiles() {
-    fileListEl.innerHTML = '<div class="empty">正在加载文件列表…</div>';
-    try {
-      const resp = await fetch("/manage/list");
-      const data = await resp.json();
-
-      if (!resp.ok || !data.ok) {
-        fileListEl.innerHTML = '<div class="empty">加载失败：' + (data.error || resp.status) + '</div>';
-        return;
-      }
-
-      allFiles = data.items || data.files || [];
-      renderTags();
-      renderList();
-    } catch (err) {
-      fileListEl.innerHTML = '<div class="empty">加载失败：' + err + '</div>';
-    }
-  }
-
-  searchInput.addEventListener("input", renderList);
-
-  // 初始化
-  updateChosenLabel();
   loadFiles();
+};
+
+// 搜索
+document.getElementById("searchBtn").onclick = () => {
+  loadFiles(document.getElementById("searchInput").value.trim());
+};
+
+// 加载文件
+async function loadFiles(keyword = "") {
+  const res = await fetch("/manage/list");
+  const all = await res.json();
+
+  const box = document.getElementById("fileList");
+  box.innerHTML = "";
+
+  const list = all.filter(item => {
+    if (!keyword) return true;
+    return item.name.includes(keyword) || (item.tags && item.tags.includes(keyword));
+  });
+
+  list.forEach(item => {
+    const div = document.createElement("div");
+    div.className = "p-4 bg-gray-100 rounded-xl";
+
+    const tagHTML = (item.tags || "")
+      .split(" ")
+      .filter(t => t.trim().length)
+      .map(t => `<span class="tag">${t}</span>`)
+      .join("");
+
+    div.innerHTML = `
+      <div class="flex justify-between items-center">
+        <div>
+          <p class="font-semibold">${item.name}</p>
+          <p class="text-gray-600 text-sm">${item.url}</p>
+        </div>
+        <a href="${item.url}" target="_blank" class="btn btn-primary text-xs">打开</a>
+      </div>
+      <div class="mt-2">${tagHTML}</div>
+    `;
+    box.appendChild(div);
+  });
+}
+
+loadFiles(); // 初始化
 </script>
 
 </body>
-</html>
+  </html>
