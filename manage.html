@@ -5,55 +5,51 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>文件管理后台</title>
 
-<!-- 现代卡片 UI：Tailwind CDN -->
 <script src="https://cdn.tailwindcss.com"></script>
 
 <style>
-  body { background:#f6f7fb; }
-  .card {
-    @apply bg-white rounded-2xl shadow p-6 mb-8;
-  }
-  .btn {
-    @apply px-4 py-2 rounded-lg text-white font-medium;
-  }
-  .btn-primary { @apply bg-blue-600 hover:bg-blue-700; }
-  .btn-danger { @apply bg-red-600 hover:bg-red-700; }
+  body { background:#f3f4f6; }
+  .card { @apply bg-white rounded-2xl shadow p-6 mb-8; }
   .tag {
     @apply inline-block bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded mr-1 cursor-pointer;
   }
+  .btn { @apply px-4 py-2 rounded-lg text-white font-medium; }
+  .btn-primary { @apply bg-blue-600 hover:bg-blue-700; }
+  .btn-danger { @apply bg-red-600 hover:bg-red-700; }
 </style>
+
 </head>
 
 <body class="p-4">
 
-<h1 class="text-2xl font-bold mb-6 flex items-center">
-  📁 文件管理后台
-</h1>
+<h1 class="text-2xl font-bold mb-6 flex items-center">📁 文件管理后台</h1>
 
 <!-- 全局提示 -->
-<div id="toast" class="hidden p-4 rounded-lg mb-4"></div>
+<div id="toast" class="hidden p-4 rounded-lg mb-4 text-white"></div>
 
 <!-- 上传区域 -->
 <div class="card">
   <h2 class="text-xl font-semibold mb-4">上传文件</h2>
 
   <div class="mb-3">
-    <input id="fileInput" type="file" class="w-full bg-gray-100 p-3 rounded-lg" multiple>
+    <input id="fileInput" type="file" multiple class="w-full p-3 rounded-lg bg-gray-100">
   </div>
 
   <div class="mb-3">
-    <input id="tagInput" type="text" placeholder="为文件添加标签（可选，多个用空格分隔）"
-           class="w-full bg-gray-100 p-3 rounded-lg">
+    <input id="tagInput" type="text" placeholder="标签（可选，多标签用空格分隔）"
+           class="w-full p-3 rounded-lg bg-gray-100">
   </div>
 
   <button id="uploadBtn" class="btn btn-primary w-full">开始上传</button>
 </div>
 
-<!-- 搜索 -->
+<!-- 搜索框 -->
 <div class="card">
-  <h2 class="text-xl font-semibold mb-4">搜索文件</h2>
-  <input id="searchInput" type="text" placeholder="输入关键词（文件名或标签）"
-         class="w-full bg-gray-100 p-3 rounded-lg mb-3">
+  <h2 class="text-xl font-semibold mb-4">搜索</h2>
+
+  <input id="searchInput" type="text" placeholder="搜索标签或文件名"
+         class="w-full p-3 rounded-lg bg-gray-100 mb-3">
+
   <button id="searchBtn" class="btn btn-primary w-full">搜索</button>
 </div>
 
@@ -64,13 +60,13 @@
 </div>
 
 <script>
-const toast = (msg, type="success") => {
+function toast(msg, type="success") {
   const box = document.getElementById("toast");
-  box.className = `p-4 rounded-lg mb-4 text-white ${type==="success" ? "bg-green-600" : "bg-red-600"}`;
-  box.innerText = msg;
   box.classList.remove("hidden");
+  box.textContent = msg;
+  box.style.background = type === "success" ? "#16a34a" : "#dc2626";
   setTimeout(() => box.classList.add("hidden"), 3000);
-};
+}
 
 // 上传文件
 document.getElementById("uploadBtn").onclick = async () => {
@@ -79,55 +75,66 @@ document.getElementById("uploadBtn").onclick = async () => {
 
   const tags = document.getElementById("tagInput").value.trim();
 
-  for (let f of files) {
+  for (const f of files) {
     const form = new FormData();
     form.append("file", f);
 
-    const res = await fetch("/upload", { method:"POST", body: form });
-    const json = await res.json();
+    // 调用 /upload 上传文件到 Telegram
+    const uploadRes = await fetch("/upload", { method: "POST", body: form });
+    const uploadJson = await uploadRes.json();
 
-    if (!json.ok) {
-      toast("上传失败：" + (json.error || "未知错误"), "error");
+    if (!uploadJson.ok) {
+      toast("上传失败：" + (uploadJson.error || "未知错误"), "error");
       continue;
     }
 
-    // 保存到 KV
+    // 保存记录到 KV：/manage/save
     await fetch("/manage/save", {
       method: "POST",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        id: json.file_id,
-        name: f.name,
-        url: json.url,
-        tags
+        file_id: uploadJson.file_id,
+        file_name: f.name,
+        tags,
+        url: uploadJson.url
       })
     });
 
-    toast("上传成功：" + f.name);
+    toast("上传成功：" + f.name, "success");
   }
 
   loadFiles();
 };
 
-// 搜索
+// 搜索按钮
 document.getElementById("searchBtn").onclick = () => {
   loadFiles(document.getElementById("searchInput").value.trim());
 };
 
-// 加载文件
+// 加载文件列表
 async function loadFiles(keyword = "") {
   const res = await fetch("/manage/list");
-  const all = await res.json();
+  const data = await res.json();
 
+  if (!data.ok) {
+    document.getElementById("fileList").innerHTML =
+      "<p class='text-gray-600'>加载失败：" + (data.error || "") + "</p>";
+    return;
+  }
+
+  const list = data.files || [];
   const box = document.getElementById("fileList");
   box.innerHTML = "";
 
-  const list = all.filter(item => {
+  const filtered = list.filter(item => {
     if (!keyword) return true;
-    return item.name.includes(keyword) || (item.tags && item.tags.includes(keyword));
+    return (
+      item.name.includes(keyword) ||
+      (item.tags && item.tags.includes(keyword))
+    );
   });
 
-  list.forEach(item => {
+  filtered.forEach(item => {
     const div = document.createElement("div");
     div.className = "p-4 bg-gray-100 rounded-xl";
 
@@ -140,19 +147,26 @@ async function loadFiles(keyword = "") {
     div.innerHTML = `
       <div class="flex justify-between items-center">
         <div>
-          <p class="font-semibold">${item.name}</p>
-          <p class="text-gray-600 text-sm">${item.url}</p>
+          <p class="font-bold">${item.name}</p>
+          <p class="text-gray-500 text-xs">${item.url}</p>
         </div>
-        <a href="${item.url}" target="_blank" class="btn btn-primary text-xs">打开</a>
+        <a href="${item.url}" target="_blank"
+           class="btn btn-primary text-xs">打开</a>
       </div>
       <div class="mt-2">${tagHTML}</div>
     `;
+
     box.appendChild(div);
   });
+
+  if (filtered.length === 0) {
+    box.innerHTML = "<p class='text-gray-500'>没有找到相关文件</p>";
+  }
 }
 
-loadFiles(); // 初始化
+// 初始化
+loadFiles();
 </script>
 
 </body>
-  </html>
+</html>
