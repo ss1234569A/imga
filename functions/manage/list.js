@@ -1,32 +1,25 @@
 // functions/manage/list.js
-// 列出所有已上传记录（从 KV: FILE_KV 读取）
+export async function onRequestGet({ request, env }) {
+  try {
+    const list = await env.FILE_KV.list({ prefix: "file:" });
 
-export async function onRequest({ env }) {
-  if (!env.FILE_KV) {
-    return new Response(
-      JSON.stringify({ ok: false, error: "FILE_KV not bound" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
-  }
+    const result = [];
 
-  const { keys } = await env.FILE_KV.list();
-  const items = [];
-
-  for (const k of keys) {
-    const v = await env.FILE_KV.get(k.name);
-    if (!v) continue;
-    try {
-      items.push(JSON.parse(v));
-    } catch {
-      // ignore broken json
+    for (let item of list.keys) {
+      const raw = await env.FILE_KV.get(item.name);
+      if (raw) {
+        result.push(JSON.parse(raw));
+      }
     }
+
+    return new Response(JSON.stringify({ ok: true, files: result }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  } catch (e) {
+    return new Response(JSON.stringify({ ok: false, error: e.toString() }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
   }
-
-  // 按时间倒序
-  items.sort((a, b) => (b.time || 0) - (a.time || 0));
-
-  return new Response(JSON.stringify({ ok: true, items }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
 }
